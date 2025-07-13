@@ -7,133 +7,189 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f9f9f9;
       padding: 20px;
+      background-color: #f4f4f4;
     }
-    h1 {
-      text-align: center;
-    }
-    textarea {
+    select, textarea, input, button {
+      margin: 10px 0;
+      padding: 10px;
       width: 100%;
-      height: 200px;
-      margin-top: 10px;
+      box-sizing: border-box;
     }
-    button {
-      margin: 5px;
-      padding: 10px 20px;
-      font-size: 1rem;
-    }
-    #settings {
-      background: #fff;
-      padding: 15px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+    table {
+      width: 100%;
+      border-collapse: collapse;
       margin-top: 20px;
-      display: none;
     }
-    label {
-      display: block;
-      margin: 8px 0 4px;
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #eee;
+    }
+    .settings, .editor {
+      margin-top: 20px;
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
   </style>
 </head>
 <body>
-  <h1>📘 DSA Problem Tracker</h1>
+  <h1>📘 DSA Tracker</h1>
 
-  <button onclick="openSettings()">⚙️ Settings</button>
-  <button onclick="saveToGitHub()">💾 Save to GitHub</button>
+  <div class="settings">
+    <h3>🔧 GitHub Settings</h3>
+    <input type="password" id="gh_token" placeholder="GitHub Token" />
+    <input type="text" id="gh_user" placeholder="GitHub Username" />
+    <input type="text" id="gh_repo" placeholder="GitHub Repo Name" />
+    <input type="text" id="gh_branch" value="main" placeholder="Branch" />
+    <button onclick="saveSettings()">💾 Save GitHub Settings</button>
+  </div>
 
-  <textarea id="content">{
-  "id": 101,
-  "name": "Sample Problem",
-  "difficulty": "Easy",
-  "link": "https://leetcode.com/problems/sample"
-}</textarea>
+  <div class="settings">
+    <h3>📄 Choose DSA Sheet</h3>
+    <select id="sheetSelector" onchange="loadSheet()">
+      <option value="neetcode-150.json">Neetcode 150</option>
+      <option value="gfg-top160.json">GFG Top 160</option>
+      <option value="custom-sheet.json">Custom Sheet</option>
+    </select>
+  </div>
 
-  <div id="settings">
-    <h3>GitHub Settings</h3>
-    <label>GitHub Token: <input type="password" id="gh_token"></label>
-    <label>Username: <input type="text" id="gh_user"></label>
-    <label>Repo Name: <input type="text" id="gh_repo"></label>
-    <label>Branch: <input type="text" id="gh_branch" value="main"></label>
-    <button onclick="saveSettings()">✅ Save Settings</button>
-    <button onclick="closeSettings()">❌ Close</button>
+  <div id="problemTableContainer"></div>
+
+  <div class="editor" id="noteEditor" style="display:none;">
+    <h3>📝 Edit Notes for: <span id="currentProblemName"></span></h3>
+    <textarea id="notesArea"></textarea>
+    <button onclick="saveNotes()">💾 Save Notes</button>
+  </div>
+
+  <div class="editor" id="codeEditor" style="display:none;">
+    <h3>💻 Edit Code for: <span id="currentCodeProblem"></span></h3>
+    <select id="langSelect">
+      <option value="cpp">C++</option>
+      <option value="java">Java</option>
+      <option value="py">Python</option>
+    </select>
+    <textarea id="codeArea" rows="10"></textarea>
+    <button onclick="saveCode()">💾 Save Code</button>
   </div>
 
   <script>
-    function openSettings() {
-      document.getElementById('settings').style.display = 'block';
-      document.getElementById('gh_token').value = localStorage.getItem('gh_token') || '';
-      document.getElementById('gh_user').value = localStorage.getItem('gh_user') || '';
-      document.getElementById('gh_repo').value = localStorage.getItem('gh_repo') || '';
-      document.getElementById('gh_branch').value = localStorage.getItem('gh_branch') || 'main';
-    }
-
-    function closeSettings() {
-      document.getElementById('settings').style.display = 'none';
-    }
+    let problems = [], selectedProblem = null, selectedLang = 'py';
 
     function saveSettings() {
       localStorage.setItem('gh_token', document.getElementById('gh_token').value);
       localStorage.setItem('gh_user', document.getElementById('gh_user').value);
       localStorage.setItem('gh_repo', document.getElementById('gh_repo').value);
       localStorage.setItem('gh_branch', document.getElementById('gh_branch').value);
-      alert("✅ GitHub settings saved locally.");
+      alert("✅ GitHub settings saved.");
     }
 
-    async function saveToGitHub() {
+    async function loadSheet() {
+      const sheet = document.getElementById('sheetSelector').value;
+      const res = await fetch(`sheets/${sheet}`);
+      problems = await res.json();
+      renderTable();
+    }
+
+    function renderTable() {
+      const tableHTML = `
+        <table>
+          <tr>
+            <th>Name</th><th>Link</th><th>Level</th><th>Notes</th><th>Code</th>
+          </tr>
+          ${problems.map(p => `
+            <tr>
+              <td>${p.name}</td>
+              <td><a href="${p.link}" target="_blank">🔗</a></td>
+              <td>${p.level}</td>
+              <td><button onclick="editNotes('${p.id}', '${p.name}')">📝</button></td>
+              <td><button onclick="editCode('${p.id}', '${p.name}')">💻</button></td>
+            </tr>
+          `).join('')}
+        </table>`;
+      document.getElementById('problemTableContainer').innerHTML = tableHTML;
+    }
+
+    function editNotes(id, name) {
+      selectedProblem = { id, name };
+      document.getElementById('currentProblemName').innerText = name;
+      document.getElementById('noteEditor').style.display = 'block';
+      document.getElementById('notesArea').value = '';
+    }
+
+    function editCode(id, name) {
+      selectedProblem = { id, name };
+      document.getElementById('currentCodeProblem').innerText = name;
+      document.getElementById('codeArea').value = '';
+      document.getElementById('codeEditor').style.display = 'block';
+    }
+
+    async function saveNotes() {
       const token = localStorage.getItem('gh_token');
       const user = localStorage.getItem('gh_user');
       const repo = localStorage.getItem('gh_repo');
       const branch = localStorage.getItem('gh_branch') || 'main';
-      const filePath = "problems.json";
+      const content = document.getElementById('notesArea').value;
+      const encoded = btoa(unescape(encodeURIComponent(content)));
+      const path = `problems/${selectedProblem.id}-${selectedProblem.name}/notes.md`;
+      await uploadToGitHub(path, encoded, token, user, repo, branch);
+    }
 
-      if (!token || !user || !repo) {
-        alert("⚠️ Please set GitHub settings first.");
-        return;
-      }
+    async function saveCode() {
+      const token = localStorage.getItem('gh_token');
+      const user = localStorage.getItem('gh_user');
+      const repo = localStorage.getItem('gh_repo');
+      const branch = localStorage.getItem('gh_branch') || 'main';
+      const lang = document.getElementById('langSelect').value;
+      const ext = lang === 'cpp' ? 'cpp' : lang === 'java' ? 'java' : 'py';
+      const content = document.getElementById('codeArea').value;
+      const encoded = btoa(unescape(encodeURIComponent(content)));
+      const path = `problems/${selectedProblem.id}-${selectedProblem.name}/code/${lang}.${ext}`;
+      await uploadToGitHub(path, encoded, token, user, repo, branch);
+    }
 
-      const content = document.getElementById("content").value;
-      const encodedContent = btoa(unescape(encodeURIComponent(content)));
-      const url = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}`;
-
+    async function uploadToGitHub(path, content, token, user, repo, branch) {
+      const url = `https://api.github.com/repos/${user}/${repo}/contents/${path}`;
       let sha = null;
       try {
-        const res = await fetch(url, {
-          headers: { Authorization: `token ${token}` }
-        });
+        const res = await fetch(url, { headers: { Authorization: `token ${token}` } });
         if (res.ok) {
           const data = await res.json();
           sha = data.sha;
         }
-      } catch (err) {
-        console.warn("Fetching SHA failed (might be new file):", err);
-      }
+      } catch (e) { console.warn('Creating new file.'); }
 
       const payload = {
-        message: "Update problems.json via DSA Tracker",
-        content: encodedContent,
+        message: `Update ${path}`,
+        content: content,
         branch: branch
       };
       if (sha) payload.sha = sha;
 
-      const saveRes = await fetch(url, {
-        method: "PUT",
+      const response = await fetch(url, {
+        method: 'PUT',
         headers: {
           Authorization: `token ${token}`,
-          "Content-Type": "application/json"
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
       });
 
-      if (saveRes.ok) {
-        alert("✅ Saved to GitHub!");
+      if (response.ok) {
+        alert("✅ Saved successfully!");
       } else {
-        const errData = await saveRes.json();
-        alert("❌ Error: " + (errData.message || "Unknown error"));
-        console.error(errData);
+        const err = await response.json();
+        alert("❌ Error: " + err.message);
       }
     }
+
+    // Auto-load first sheet on startup
+    loadSheet();
   </script>
 </body>
 </html>
