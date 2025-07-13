@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📘 DSA Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      margin-top: 10px;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 1rem;
+    }
+    #settings {
+      background: #fff;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-top: 20px;
+      display: none;
+    }
+    label {
+      display: block;
+      margin: 8px 0 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📘 DSA Problem Tracker</h1>
+
+  <button onclick="openSettings()">⚙️ Settings</button>
+  <button onclick="saveToGitHub()">💾 Save to GitHub</button>
+
+  <textarea id="content">{
+  "id": 101,
+  "name": "Sample Problem",
+  "difficulty": "Easy",
+  "link": "https://leetcode.com/problems/sample"
+}</textarea>
+
+  <div id="settings">
+    <h3>GitHub Settings</h3>
+    <label>GitHub Token: <input type="password" id="gh_token"></label>
+    <label>Username: <input type="text" id="gh_user"></label>
+    <label>Repo Name: <input type="text" id="gh_repo"></label>
+    <label>Branch: <input type="text" id="gh_branch" value="main"></label>
+    <button onclick="saveSettings()">✅ Save Settings</button>
+    <button onclick="closeSettings()">❌ Close</button>
+  </div>
+
+  <script>
+    function openSettings() {
+      document.getElementById('settings').style.display = 'block';
+      document.getElementById('gh_token').value = localStorage.getItem('gh_token') || '';
+      document.getElementById('gh_user').value = localStorage.getItem('gh_user') || '';
+      document.getElementById('gh_repo').value = localStorage.getItem('gh_repo') || '';
+      document.getElementById('gh_branch').value = localStorage.getItem('gh_branch') || 'main';
+    }
+
+    function closeSettings() {
+      document.getElementById('settings').style.display = 'none';
+    }
+
+    function saveSettings() {
+      localStorage.setItem('gh_token', document.getElementById('gh_token').value);
+      localStorage.setItem('gh_user', document.getElementById('gh_user').value);
+      localStorage.setItem('gh_repo', document.getElementById('gh_repo').value);
+      localStorage.setItem('gh_branch', document.getElementById('gh_branch').value);
+      alert("✅ GitHub settings saved locally.");
+    }
+
+    async function saveToGitHub() {
+      const token = localStorage.getItem('gh_token');
+      const user = localStorage.getItem('gh_user');
+      const repo = localStorage.getItem('gh_repo');
+      const branch = localStorage.getItem('gh_branch') || 'main';
+      const filePath = "problems.json";
+
+      if (!token || !user || !repo) {
+        alert("⚠️ Please set GitHub settings first.");
+        return;
+      }
+
+      const content = document.getElementById("content").value;
+      const encodedContent = btoa(unescape(encodeURIComponent(content)));
+      const url = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}`;
+
+      let sha = null;
+      try {
+        const res = await fetch(url, {
+          headers: { Authorization: `token ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          sha = data.sha;
+        }
+      } catch (err) {
+        console.warn("Fetching SHA failed (might be new file):", err);
+      }
+
+      const payload = {
+        message: "Update problems.json via DSA Tracker",
+        content: encodedContent,
+        branch: branch
+      };
+      if (sha) payload.sha = sha;
+
+      const saveRes = await fetch(url, {
+        method: "PUT",
+        headers: {
+          Authorization: `token ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (saveRes.ok) {
+        alert("✅ Saved to GitHub!");
+      } else {
+        const errData = await saveRes.json();
+        alert("❌ Error: " + (errData.message || "Unknown error"));
+        console.error(errData);
+      }
+    }
+  </script>
+</body>
+</html>
